@@ -18,10 +18,11 @@ export class GeminiService {
 
   constructor() {
     this.apiKey = environment.geminiApiKey;
-    console.log('GeminiService init - API Key presente:', !!this.apiKey, 'lunghezza:', this.apiKey?.length);
+    const maskedKey = this.apiKey ? `${this.apiKey.substring(0, 4)}...${this.apiKey.substring(this.apiKey.length - 4)}` : 'MISSING';
+    console.log('GeminiService init - API Key status:', maskedKey, 'Length:', this.apiKey?.length);
 
-    if (!this.apiKey) {
-      console.error("CRITICAL: API Key mancante. Configura environment.geminiApiKey");
+    if (!this.apiKey || this.apiKey === 'MISSING_API_KEY') {
+      console.error("CRITICAL: API Key mancante o non valida. Configura environment.geminiApiKey su Railway.");
     }
 
     this.genAI = new GoogleGenerativeAI(this.apiKey);
