@@ -252,43 +252,117 @@ JSON OUTPUT ONLY:`;
     }
   }
 
-  // --- IMAGEN (REST API WORKAROUND) ---
-  // La libreria JS standard non supporta ancora `generateImages` direttamente, usiamo REST.
+  // --- IMAGEN (REST API) ---
   async generateImage(prompt: string): Promise<string> {
-      try {
-        const url = `https://generativelanguage.googleapis.com/v1beta/models/imagen-3.0-generate-001:predict?key=${this.apiKey}`;
-        
-        const response = await fetch(url, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                instances: [{ prompt: prompt }],
-                parameters: { sampleCount: 1, aspectRatio: "1:1" }
-            })
-        });
+    console.log('generateImage - Starting with prompt length:', prompt.length);
+    
+    try {
+      const url = `https://generativelanguage.googleapis.com/v1beta/models/imagen-3.0-generate-001:predict?key=${this.apiKey}`;
+      
+      console.log('generateImage - Calling Imagen API...');
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          instances: [{ prompt: prompt }],
+          parameters: { 
+            sampleCount: 1, 
+            aspectRatio: "1:1",
+            outputOptions: { mimeType: "image/jpeg" }
+          }
+        })
+      });
 
-        if (!response.ok) throw new Error(`Imagen API Error: ${response.statusText}`);
-        
-        const data = await response.json();
-        // La struttura di risposta di Imagen REST
-        const imageBytes = data.predictions?.[0]?.bytesBase64Encoded;
-        
-        if (!imageBytes) throw new Error("No image returned from Imagen");
-        return imageBytes;
-
-      } catch (e) {
-          console.error("Image gen failed", e);
-          throw new Error("Generazione immagine fallita.");
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('generateImage - API Error:', response.status, errorText);
+        throw new Error(`Imagen API Error: ${response.status} - ${errorText}`);
       }
+      
+      const data = await response.json();
+      console.log('generateImage - Response received, checking for image data...');
+      
+      const imageBytes = data.predictions?.[0]?.bytesBase64Encoded;
+      
+      if (!imageBytes) {
+        console.error('generateImage - No image in response:', JSON.stringify(data).substring(0, 500));
+        throw new Error("No image returned from Imagen");
+      }
+      
+      console.log('generateImage - Success, image size:', imageBytes.length);
+      return imageBytes;
+
+    } catch (e: any) {
+      console.error("generateImage - Failed:", e.message);
+      throw new Error(`Generazione immagine fallita: ${e.message}`);
+    }
   }
 
+  // --- PHOTO PROMPT ENGINEERING ---
   async generatePhotoPrompt(meta: any, synthesis: any): Promise<PhotoPrompt> {
-      const prompt = `Describe a professional photo of cocktail ${meta.dish_name}. Ingredients: ${synthesis.ingredients.map((i:any)=>i.name).join(',')}. Glass: ${synthesis.glassware_guide.glass_type}. JSON {image_prompt: string}`;
-      try {
-        const model = this.getModel(this.flashModelName);
-        const res = await model.generateContent(prompt);
-        return this.extractJson<PhotoPrompt>(res.response.text());
-      } catch(e) { return { image_prompt: `Cocktail ${meta.dish_name} in a bar setting.` }; }
+    const systemPrompt = `
+You are a professional Drink Stylist and Prompt Engineer specializing in cocktail photography.
+Your task is to create highly detailed prompts for AI image generators.
+
+ANALYSIS PROCESS:
+1. Examine the cocktail's preparation method to determine liquid physics:
+   - SHAKEN: cloudy liquid, tiny ice shards, condensation on glass, frothy texture
+   - STIRRED: crystal-clear liquid, viscous, silky appearance, no bubbles
+   - BUILT with carbonation: visible effervescence, rising bubbles, sparkling surface
+
+2. Consider the glassware, ice type, and garnish for visual composition.
+
+3. Create a prompt in ENGLISH following this structure:
+   - OPENING: Camera angle and subject (e.g., "Macro shot of a cocktail in a coupe glass...")
+   - MIDDLE: Liquid physics, condensation, garnish details, colors
+   - ENDING: Lighting, background, technical keywords
+
+REQUIRED KEYWORDS at the end: "professional cocktail photography, cinematic lighting, bar counter reflection, 8k, photorealistic, depth of field, bokeh, studio lighting"
+
+OUTPUT: JSON only with format {"image_prompt": "your detailed prompt here"}
+`;
+
+    // Extract preparation method from steps
+    const stepsText = synthesis.steps?.map((s: any) => s.instruction).join(' ').toLowerCase() || '';
+    let liquidPhysics = 'balanced clarity';
+    if (stepsText.includes('shake') || stepsText.includes('shaker')) {
+      liquidPhysics = 'SHAKEN - expect cloudy, aerated liquid with micro ice shards and glass condensation';
+    } else if (stepsText.includes('stir') || stepsText.includes('mixing glass')) {
+      liquidPhysics = 'STIRRED - expect crystal-clear, viscous, silky liquid with pristine clarity';
+    } else if (stepsText.includes('build') || stepsText.includes('soda') || stepsText.includes('top with') || stepsText.includes('sparkling')) {
+      liquidPhysics = 'BUILT/CARBONATED - expect visible effervescence, rising bubbles, sparkling surface';
+    }
+
+    const userPrompt = `
+Create a photorealistic image prompt for this cocktail:
+
+COCKTAIL: ${meta.dish_name}
+CONCEPT: ${meta.concept_summary || 'A refined cocktail experience'}
+
+GLASSWARE: ${synthesis.glassware_guide?.glass_type || 'elegant glass'}
+ICE: ${synthesis.glassware_guide?.ice_type || 'cubed ice'}
+GARNISH: ${synthesis.glassware_guide?.garnish_detail || 'subtle garnish'}
+
+INGREDIENTS: ${synthesis.ingredients?.map((i: any) => i.name).join(', ') || 'premium spirits'}
+
+PREPARATION ANALYSIS: ${liquidPhysics}
+
+Generate the detailed image prompt now. JSON output only.
+`;
+
+    try {
+      const model = this.getModel(this.flashModelName, systemPrompt);
+      const res = await model.generateContent(userPrompt);
+      const result = this.extractJson<PhotoPrompt>(res.response.text());
+      console.log('generatePhotoPrompt - Generated prompt:', result.image_prompt?.substring(0, 100) + '...');
+      return result;
+    } catch (e) {
+      console.error('generatePhotoPrompt - Failed, using fallback:', e);
+      // Fallback: create a basic but structured prompt
+      return { 
+        image_prompt: `Macro shot of ${meta.dish_name} cocktail in a ${synthesis.glassware_guide?.glass_type || 'elegant glass'}, garnished with ${synthesis.glassware_guide?.garnish_detail || 'fresh herbs'}, ${synthesis.glassware_guide?.ice_type || 'crystal clear ice'}, professional cocktail photography, cinematic lighting, bar counter reflection, 8k, photorealistic, depth of field, bokeh, studio lighting` 
+      };
+    }
   }
 
   // --- MARKET ANALYSIS: Single Dish Financial & Nutritional Report ---
