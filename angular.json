@@ -29,7 +29,8 @@
               "pdfmake"
             ],
             "assets": [
-              "src/assets"
+              "src/assets",
+              { "glob": "serve.json", "input": "src", "output": "/" }
             ],
             "styles": [
               "src/styles.css"
