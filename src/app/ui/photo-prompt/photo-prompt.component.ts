@@ -31,8 +31,12 @@ export class PhotoPromptComponent {
   constructor() {
     // Sync input to local signal when it changes
     effect(() => {
-      this.editablePrompt.set(this.initialPrompt());
-    });
+      const prompt = this.initialPrompt();
+      console.log('PhotoPromptComponent effect - initialPrompt:', prompt?.substring(0, 50) + '...');
+      if (prompt && prompt.length > 0) {
+        this.editablePrompt.set(prompt);
+      }
+    }, { allowSignalWrites: true });
   }
 
   copyPrompt() {
