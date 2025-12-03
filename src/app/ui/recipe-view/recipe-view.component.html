@@ -162,7 +162,7 @@
 }
 
 <!-- PHOTO PROMPT MODAL -->
-@if (showPhotoPromptModal() && photoPrompt()) {
+@if (showPhotoPromptModal()) {
   <div class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-stone-900/60 backdrop-blur-sm animate-fade-in">
      <div class="w-full max-w-2xl relative">
         <button (click)="closeModal()" class="absolute -top-12 right-0 text-white hover:text-stone-300 transition-colors cursor-pointer">
@@ -170,11 +170,24 @@
              <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
            </svg>
         </button>
-        <app-photo-prompt 
-           [initialPrompt]="photoPrompt()!" 
-           (imageSelected)="onImageInserted($event)"
-           (closeRequested)="closeModal()">
-        </app-photo-prompt>
+        
+        @if (promptState() === 'loading') {
+          <div class="bg-white p-12 text-center rounded shadow-xl">
+            <div class="animate-spin w-8 h-8 border-2 border-stone-300 border-t-stone-800 rounded-full mx-auto mb-4"></div>
+            <p class="font-serif text-stone-600 italic">Crafting visual prompt...</p>
+          </div>
+        } @else if (promptState() === 'error') {
+          <div class="bg-white p-12 text-center rounded shadow-xl">
+            <p class="font-serif text-red-600 mb-4">Failed to generate prompt</p>
+            <button (click)="triggerPhotoPromptGeneration()" class="bg-stone-800 text-white px-4 py-2 text-sm cursor-pointer">Retry</button>
+          </div>
+        } @else if (photoPrompt()) {
+          <app-photo-prompt 
+             [initialPrompt]="photoPrompt()!" 
+             (imageSelected)="onImageInserted($event)"
+             (closeRequested)="closeModal()">
+          </app-photo-prompt>
+        }
      </div>
   </div>
 }
