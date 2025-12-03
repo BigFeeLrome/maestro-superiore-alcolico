@@ -215,15 +215,514 @@ EXAMPLE SUGGESTIONS:
       } catch(e) { return { image_prompt: `Cocktail ${meta.dish_name} in a bar setting.` }; }
   }
 
+  // --- MARKET ANALYSIS: Single Dish Financial & Nutritional Report ---
+  async analyzeSingleDishMarket(data: MaestroSynthesis): Promise<MarketReport> {
+    const lang = this.langService.currentLang();
+    const isIT = lang === 'IT';
+    
+    const ingredientsList = data.ingredients.map(i => `- ${i.name}: ${i.quantity}`).join('\n');
+    const technique = data.steps.length > 0 ? data.steps[0].instruction : 'standard preparation';
+    
+    const systemPrompt = `
+You are a Bar Business Consultant and Mixology Expert with deep knowledge of:
+- Current European spirits and ingredients market prices (2024)
+- Cocktail costing and pricing strategies
+- Nutritional values and ABV calculations for beverages
+
+LANGUAGE: Output all text in ${isIT ? 'ITALIAN' : 'ENGLISH'}.
+`;
+
+    const userPrompt = `
+TASK: Analyze this cocktail recipe for financial viability and nutritional profile.
+
+RECIPE INGREDIENTS:
+${ingredientsList}
+
+PREPARATION TECHNIQUE: ${technique}
+ICE TYPE: ${data.glassware_guide.ice_type}
+
+REQUIRED ANALYSIS:
+
+1. **COST BREAKDOWN**: For each ingredient, provide:
+   - Market unit price (e.g., "€28.00 / 700ml" for spirits, "€3.50 / 500ml" for juices)
+   - Calculated cost for the quantity used in this recipe
+   - Market trend: STABLE, RISING, or FALLING
+   - ABV content (e.g., "40%" for spirits, "0%" for juices)
+   - Calories for the quantity used
+
+2. **FINANCIAL SUMMARY**:
+   - Total pour cost (sum of all ingredient costs)
+   - Suggested menu price (targeting 75-80% profit margin)
+   - Actual profit margin percentage
+
+3. **NUTRITIONAL PROFILE**:
+   - Final ABV after dilution (consider ice type and technique: shaking adds ~25% water, stirring ~15%, neat/no ice = 0%)
+   - Total calories
+   - Dilution factor description
+
+4. **MARKETING & STRATEGY**:
+   - A compelling one-line marketing hook for this drink
+   - A professional pricing strategy note (why this price makes sense)
+
+OUTPUT FORMAT (JSON ONLY):
+{
+  "total_pour_cost": number,
+  "suggested_menu_price": number,
+  "profit_margin_percentage": number,
+  "cost_breakdown": [
+    {
+      "ingredient": "string",
+      "quantity_used": "string",
+      "market_unit_price": "string",
+      "calculated_cost": number,
+      "market_trend": "STABLE" | "RISING" | "FALLING",
+      "abv_content": "string",
+      "calories": number
+    }
+  ],
+  "nutritional_profile": {
+    "final_abv": "string",
+    "total_calories": number,
+    "dilution_factor": "string"
+  },
+  "marketing_hook": "string",
+  "pricing_strategy_note": "string"
+}
+`;
+
+    try {
+      const model = this.getModel(this.flashModelName, systemPrompt);
+      const result = await model.generateContent(userPrompt);
+      const report = this.extractJson<MarketReport>(result.response.text());
+      
+      // Validate and ensure all required fields exist
+      return {
+        total_pour_cost: report.total_pour_cost || 0,
+        suggested_menu_price: report.suggested_menu_price || 0,
+        profit_margin_percentage: report.profit_margin_percentage || 0,
+        cost_breakdown: report.cost_breakdown || [],
+        nutritional_profile: report.nutritional_profile || {
+          final_abv: "N/A",
+          total_calories: 0,
+          dilution_factor: "N/A"
+        },
+        marketing_hook: report.marketing_hook || "A unique cocktail experience",
+        pricing_strategy_note: report.pricing_strategy_note || "Priced for premium positioning"
+      };
+    } catch (error) {
+      console.error('Market analysis failed:', error);
+      // Return a fallback report instead of throwing
+      return {
+        total_pour_cost: 0,
+        suggested_menu_price: 0,
+        profit_margin_percentage: 0,
+        cost_breakdown: data.ingredients.map(ing => ({
+          ingredient: ing.name,
+          quantity_used: ing.quantity,
+          market_unit_price: "N/A",
+          calculated_cost: 0,
+          market_trend: 'STABLE' as const,
+          abv_content: "0%",
+          calories: 0
+        })),
+        nutritional_profile: {
+          final_abv: "N/A",
+          total_calories: 0,
+          dilution_factor: "N/A"
+        },
+        marketing_hook: isIT ? "Analisi non disponibile" : "Analysis unavailable",
+        pricing_strategy_note: isIT ? "Riprova più tardi" : "Please try again later"
+      };
+    }
+  }
+
   // --- STUBS PER COMPILAZIONE (Implementazione successiva) ---
-  // Questi metodi sono placeholder per evitare errori di compilazione negli altri componenti
-  async generateMenu(ing: string[], exp: any, constr: any, num?: number): Promise<MenuProjectResponse> { throw new Error("Menu generation coming soon"); }
-  async modifyMenu(menu: any, req: string): Promise<MenuProjectResponse> { throw new Error("Menu modification coming soon"); }
-  async analyzeMenuMarket(menu: MenuProjectResponse): Promise<MenuMarketReport> { return { overall_pour_cost: 0, recommended_price_per_pax: 0, target_margin: 0, financial_narrative: "Data unavailable", dishes_breakdown: [] }; }
-  async analyzeSingleDishMarket(data: MaestroSynthesis): Promise<MarketReport> { return { total_pour_cost: 0, suggested_menu_price: 0, profit_margin_percentage: 0, cost_breakdown: [], marketing_hook: "N/A", pricing_strategy_note: "N/A", nutritional_profile: {final_abv:"0%", total_calories:0, dilution_factor:"0"}}; }
-  async analyzeExistingMenu(file: any, url: any): Promise<MenuAnalysisResponse> { throw new Error("Not implemented"); }
-  async regenerateDish(profile: any, dish: any): Promise<AnalyzedDish> { throw new Error("Not implemented"); }
-  async expandDishToRecipe(profile: any, dish: any, exp: any): Promise<MaestroResponse> { throw new Error("Not implemented"); }
+  // Metodi non ancora implementati
+
+  // --- MENU GENERATION: Create Full Cocktail Menu ---
+  async generateMenu(ingredients: string[], expertise: ExpertiseLevel, constraints: string[], numCourses: number = 4): Promise<MenuProjectResponse> {
+    const lang = this.langService.currentLang();
+    const isIT = lang === 'IT';
+
+    const systemPrompt = `
+You are a Bar Director and Menu Curator creating cohesive cocktail experiences.
+You design menus that tell a story, with drinks that flow naturally from one to the next.
+
+LANGUAGE: All text output must be in ${isIT ? 'ITALIAN' : 'ENGLISH'}.
+`;
+
+    const menuPrompt = `
+TASK: Create a cohesive cocktail menu (drink flight) with ${numCourses} drinks.
+
+AVAILABLE INGREDIENTS/THEMES: ${ingredients.join(', ')}
+EXPERTISE LEVEL: ${expertise}
+CONSTRAINTS/STYLE: ${constraints.join(', ')}
+
+REQUIREMENTS:
+1. Create a unifying CONCEPT that ties all drinks together
+2. Design ${numCourses} distinct cocktails that form a narrative journey
+3. Consider ABV progression (typically: lighter → stronger → digestif, or vice versa)
+4. Each drink must be complete with ingredients, steps, and the Sages Council analysis
+
+OUTPUT FORMAT (JSON ONLY):
+{
+  "concept": {
+    "title": "string (creative menu title)",
+    "description": "string (the narrative/theme)",
+    "seasonality": "string (e.g., 'Autumn Transition', 'Year-Round')",
+    "philosophical_theme": "string (e.g., 'Memory & Nostalgia', 'Urban Botanicals')"
+  },
+  "courses": [
+    {
+      "meta": {
+        "dish_name": "string",
+        "concept_summary": "string",
+        "preparation_time_minutes": number,
+        "difficulty_level": "string",
+        "abv_estimate": "string",
+        "calories_estimate": number,
+        "drink_category": "string"
+      },
+      "sages_council": {
+        "scientist": { "headline": "string", "analysis": "string" },
+        "artist": { "headline": "string", "analysis": "string" },
+        "historian": { "headline": "string", "analysis": "string" },
+        "philosopher": { "headline": "string", "analysis": "string" }
+      },
+      "maestro_synthesis": {
+        "rationale": "string",
+        "ingredients": [{ "name": "string", "quantity": "string", "notes": "string" }],
+        "steps": [{ "step_number": number, "instruction": "string", "technical_note": "string" }],
+        "glassware_guide": { "glass_type": "string", "ice_type": "string", "garnish_detail": "string" },
+        "sensory_profile": { "taste_balance": "string", "texture_map": "string" },
+        "homemade_preps": []
+      }
+    }
+  ]
+}
+`;
+
+    try {
+      const model = this.getModel(this.proModelName, systemPrompt);
+      const result = await model.generateContent(menuPrompt);
+      return this.extractJson<MenuProjectResponse>(result.response.text());
+    } catch (error) {
+      console.error('Menu generation failed:', error);
+      throw new Error(isIT ? "Generazione menu fallita" : "Menu generation failed");
+    }
+  }
+
+  // --- MENU MODIFICATION: Iteratively Modify Existing Menu ---
+  async modifyMenu(menu: MenuProjectResponse, request: string): Promise<MenuProjectResponse> {
+    const lang = this.langService.currentLang();
+    const isIT = lang === 'IT';
+
+    const systemPrompt = `
+You are a Bar Director modifying an existing cocktail menu based on client feedback.
+Maintain the overall concept coherence while implementing requested changes.
+
+LANGUAGE: All text output must be in ${isIT ? 'ITALIAN' : 'ENGLISH'}.
+`;
+
+    const modifyPrompt = `
+CURRENT MENU:
+${JSON.stringify(menu, null, 2)}
+
+CLIENT REQUEST:
+"${request}"
+
+TASK: Modify the menu according to the request while:
+1. Maintaining overall concept coherence
+2. Adjusting only what's necessary
+3. Ensuring the narrative flow still works
+4. Keeping the same JSON structure
+
+OUTPUT: Return the COMPLETE modified menu in the same JSON format.
+`;
+
+    try {
+      const model = this.getModel(this.proModelName, systemPrompt);
+      const result = await model.generateContent(modifyPrompt);
+      return this.extractJson<MenuProjectResponse>(result.response.text());
+    } catch (error) {
+      console.error('Menu modification failed:', error);
+      throw new Error(isIT ? "Modifica menu fallita" : "Menu modification failed");
+    }
+  }
+
+  // --- MENU MARKET ANALYSIS: Financial Overview for Entire Menu ---
+  async analyzeMenuMarket(menu: MenuProjectResponse): Promise<MenuMarketReport> {
+    const lang = this.langService.currentLang();
+    const isIT = lang === 'IT';
+
+    // Build a summary of all drinks and their ingredients
+    const drinksSummary = menu.courses.map((course, idx) => {
+      const ingredients = course.maestro_synthesis.ingredients
+        .map(i => `${i.name}: ${i.quantity}`)
+        .join(', ');
+      return `Drink ${idx + 1}: ${course.meta.dish_name} - ${ingredients}`;
+    }).join('\n');
+
+    const systemPrompt = `
+You are a Bar Business Analyst specializing in menu profitability and pricing strategy.
+
+LANGUAGE: Output all text in ${isIT ? 'ITALIAN' : 'ENGLISH'}.
+`;
+
+    const analysisPrompt = `
+TASK: Analyze the financial viability of this cocktail menu.
+
+MENU CONCEPT: ${menu.concept.title}
+DRINKS:
+${drinksSummary}
+
+REQUIRED ANALYSIS:
+1. Calculate pour cost for each drink
+2. Identify key expensive ingredients per drink
+3. Calculate overall menu pour cost
+4. Recommend price per person for the full experience
+5. Target margin (aim for 75-80%)
+6. Provide a financial narrative explaining the pricing strategy
+
+OUTPUT FORMAT (JSON ONLY):
+{
+  "overall_pour_cost": number,
+  "recommended_price_per_pax": number,
+  "target_margin": number,
+  "financial_narrative": "string",
+  "dishes_breakdown": [
+    {
+      "dish_name": "string",
+      "pour_cost": number,
+      "key_expensive_ingredients": ["string"]
+    }
+  ]
+}
+`;
+
+    try {
+      const model = this.getModel(this.flashModelName, systemPrompt);
+      const result = await model.generateContent(analysisPrompt);
+      return this.extractJson<MenuMarketReport>(result.response.text());
+    } catch (error) {
+      console.error('Menu market analysis failed:', error);
+      return {
+        overall_pour_cost: 0,
+        recommended_price_per_pax: 0,
+        target_margin: 0,
+        financial_narrative: isIT ? "Analisi non disponibile" : "Analysis unavailable",
+        dishes_breakdown: menu.courses.map(c => ({
+          dish_name: c.meta.dish_name,
+          pour_cost: 0,
+          key_expensive_ingredients: []
+        }))
+      };
+    }
+  }
+
+  // --- BAR AUDIT: Analyze Existing Menu ---
+  async analyzeExistingMenu(file: File | null, url: string | null): Promise<MenuAnalysisResponse> {
+    const lang = this.langService.currentLang();
+    const isIT = lang === 'IT';
+
+    const systemPrompt = `
+You are a Senior Bar Consultant specializing in menu optimization and brand strategy.
+Your role is to audit cocktail menus and provide actionable insights.
+
+LANGUAGE: Output all text in ${isIT ? 'ITALIAN' : 'ENGLISH'}.
+`;
+
+    const analysisInstructions = `
+TASK: Analyze this cocktail menu and provide a comprehensive audit.
+
+REQUIRED ANALYSIS:
+
+1. **RESTAURANT PROFILE**: Infer from the menu:
+   - name: The establishment name (if visible, otherwise "Unknown Venue")
+   - brand_identity: The bar's positioning (e.g., "Speakeasy", "Craft Cocktail Bar", "Hotel Lounge", "Tiki Bar")
+   - perceived_vibe: The atmosphere and experience it projects
+   - target_audience: Who this menu is designed for
+
+2. **DISH ANALYSIS**: For EACH drink on the menu, provide:
+   - original_name: The drink's name as shown
+   - current_description: The description/ingredients listed
+   - critique: What's wrong or could be improved (be constructive but honest)
+   - suggested_improvement: A specific, actionable improvement
+   - alignment_score: 1-100 score of how well it fits the brand identity
+
+3. **GLOBAL ASSESSMENT**:
+   - global_critique: Overall assessment of the menu's strengths and weaknesses
+   - strategic_opportunities: Array of 3-5 strategic recommendations for the entire menu
+
+OUTPUT FORMAT (JSON ONLY):
+{
+  "restaurant_profile": {
+    "name": "string",
+    "brand_identity": "string",
+    "perceived_vibe": "string",
+    "target_audience": "string"
+  },
+  "dishes": [
+    {
+      "original_name": "string",
+      "current_description": "string",
+      "critique": "string",
+      "suggested_improvement": "string",
+      "alignment_score": number
+    }
+  ],
+  "global_critique": "string",
+  "strategic_opportunities": ["string"]
+}
+`;
+
+    try {
+      let result;
+
+      if (file) {
+        // Convert file to base64 for Gemini Vision
+        const base64Data = await this.fileToBase64(file);
+        const mimeType = file.type || 'image/jpeg';
+        
+        const model = this.genAI.getGenerativeModel({ 
+          model: 'gemini-2.5-flash',
+          systemInstruction: systemPrompt
+        });
+
+        result = await model.generateContent([
+          { text: analysisInstructions },
+          {
+            inlineData: {
+              mimeType: mimeType,
+              data: base64Data
+            }
+          }
+        ]);
+      } else if (url) {
+        // For URL, we ask the model to analyze based on description
+        // Note: Gemini can't directly fetch URLs, so we provide context
+        const model = this.getModel(this.flashModelName, systemPrompt);
+        
+        const urlPrompt = `
+${analysisInstructions}
+
+MENU SOURCE: Website URL - ${url}
+
+Note: Please analyze based on typical cocktail menu patterns for this type of establishment.
+If you cannot access the URL directly, provide a template analysis that the user can refine.
+Ask the user to provide more details about the menu items if needed.
+
+For now, create a sample analysis structure that demonstrates the audit format.
+`;
+        result = await model.generateContent(urlPrompt);
+      } else {
+        throw new Error("No file or URL provided");
+      }
+
+      const response = this.extractJson<MenuAnalysisResponse>(result.response.text());
+      return response;
+
+    } catch (error) {
+      console.error('Menu analysis failed:', error);
+      throw new Error(isIT ? "Analisi del menu fallita. Riprova." : "Menu analysis failed. Please try again.");
+    }
+  }
+
+  // Helper: Convert File to Base64
+  private fileToBase64(file: File): Promise<string> {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => {
+        const result = reader.result as string;
+        // Remove the data URL prefix (e.g., "data:image/jpeg;base64,")
+        const base64 = result.split(',')[1];
+        resolve(base64);
+      };
+      reader.onerror = reject;
+      reader.readAsDataURL(file);
+    });
+  }
+
+  // --- BAR AUDIT: Regenerate a Single Dish with Improvement ---
+  async regenerateDish(profile: RestaurantProfile, dish: AnalyzedDish): Promise<AnalyzedDish> {
+    const lang = this.langService.currentLang();
+    const isIT = lang === 'IT';
+
+    const prompt = `
+You are a Bar Consultant improving a cocktail for a specific venue.
+
+VENUE PROFILE:
+- Name: ${profile.name}
+- Brand Identity: ${profile.brand_identity}
+- Vibe: ${profile.perceived_vibe}
+- Target Audience: ${profile.target_audience}
+
+CURRENT DRINK TO IMPROVE:
+- Name: ${dish.original_name}
+- Description: ${dish.current_description}
+- Previous Critique: ${dish.critique}
+
+TASK: Create a NEW alternative proposal that:
+1. Better aligns with the brand identity
+2. Addresses the critique
+3. Maintains or elevates the concept
+4. Is practical to implement
+
+LANGUAGE: ${isIT ? 'ITALIAN' : 'ENGLISH'}
+
+OUTPUT FORMAT (JSON ONLY):
+{
+  "original_name": "string (new creative name)",
+  "current_description": "string (new ingredients/description)",
+  "critique": "string (why this version is better)",
+  "suggested_improvement": "string (implementation notes)",
+  "alignment_score": number (should be higher than before)
+}
+`;
+
+    try {
+      const model = this.getModel(this.flashModelName);
+      const result = await model.generateContent(prompt);
+      return this.extractJson<AnalyzedDish>(result.response.text());
+    } catch (error) {
+      console.error('Dish regeneration failed:', error);
+      throw new Error(isIT ? "Rigenerazione fallita" : "Regeneration failed");
+    }
+  }
+
+  // --- BAR AUDIT: Expand Analyzed Dish to Full Recipe ---
+  async expandDishToRecipe(profile: RestaurantProfile, dish: AnalyzedDish, expertise: ExpertiseLevel): Promise<MaestroResponse> {
+    const lang = this.langService.currentLang();
+    const sysPrompt = this.getSystemPrompt(lang);
+
+    const contextPrompt = `
+CONTEXT: You are creating a full recipe for a bar with this profile:
+- Name: ${profile.name}
+- Brand Identity: ${profile.brand_identity}
+- Vibe: ${profile.perceived_vibe}
+- Target: ${profile.target_audience}
+
+DRINK CONCEPT TO DEVELOP:
+- Name: ${dish.original_name}
+- Concept: ${dish.current_description}
+- Strategic Direction: ${dish.suggested_improvement}
+
+EXPERTISE LEVEL: ${expertise}
+
+TASK: Create a complete cocktail recipe following the system JSON schema.
+The recipe must align perfectly with the venue's brand identity.
+JSON Only.
+`;
+
+    try {
+      const model = this.getModel(this.proModelName, sysPrompt);
+      const result = await model.generateContent(contextPrompt);
+      return this.extractJson<MaestroResponse>(result.response.text());
+    } catch (error) {
+      console.error('Recipe expansion failed:', error);
+      throw new Error("Failed to create full recipe");
+    }
+  }
 
   // --- SYSTEM PROMPT ---
   private getSystemPrompt(lang: Language): string {
