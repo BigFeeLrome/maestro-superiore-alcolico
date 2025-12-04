@@ -1,11 +1,14 @@
 import { Injectable } from '@angular/core';
 
-// @ts-ignore - Import pdfMake SOLO qui, una volta sola
-import pdfMake from 'pdfmake/build/pdfmake';
 // @ts-ignore
-import pdfFonts from 'pdfmake/build/vfs_fonts';
+import * as pdfMakeLib from 'pdfmake/build/pdfmake';
+// @ts-ignore
+import * as pdfFontsLib from 'pdfmake/build/vfs_fonts';
 
-export type TDocumentDefinitions = Parameters<typeof pdfMake.createPdf>[0];
+const pdfMake = (pdfMakeLib as any).default || pdfMakeLib;
+const pdfFonts = (pdfFontsLib as any).default || pdfFontsLib;
+
+export type TDocumentDefinitions = any;
 
 @Injectable({
   providedIn: 'root'
@@ -13,6 +16,7 @@ export type TDocumentDefinitions = Parameters<typeof pdfMake.createPdf>[0];
 export class PdfService {
   private fontsLoaded = false;
   private fontsLoading: Promise<void> | null = null;
+  private initialized = false;
 
   private readonly FONT_URLS = {
     regular: 'https://raw.githubusercontent.com/google/fonts/main/ofl/crimsontext/CrimsonText-Regular.ttf',
@@ -21,13 +25,21 @@ export class PdfService {
   };
 
   constructor() {
-    this.initializeDefaultFonts();
   }
 
   private initializeDefaultFonts(): void {
-    (pdfMake as any).vfs = pdfFonts.pdfMake.vfs;
+    if (this.initialized) return;
     
-    (pdfMake as any).fonts = {
+    const vfs = pdfFonts?.pdfMake?.vfs || pdfFonts?.vfs || pdfFonts;
+    
+    if (!vfs || typeof vfs !== 'object') {
+      console.error('PdfService: Could not find VFS fonts');
+      return;
+    }
+    
+    pdfMake.vfs = vfs;
+    
+    pdfMake.fonts = {
       Roboto: {
         normal: 'Roboto-Regular.ttf',
         bold: 'Roboto-Medium.ttf',
@@ -41,9 +53,14 @@ export class PdfService {
         bolditalics: 'Roboto-MediumItalic.ttf'
       }
     };
+    
+    this.initialized = true;
+    console.log('PdfService: VFS initialized successfully');
   }
 
   async ensureFontsLoaded(): Promise<void> {
+    this.initializeDefaultFonts();
+    
     if (this.fontsLoaded) return;
     
     if (this.fontsLoading) {
@@ -65,12 +82,12 @@ export class PdfService {
         this.fetchFontAsBase64(this.FONT_URLS.italic)
       ]);
 
-      (pdfMake as any).vfs['Crimson-Regular.ttf'] = regular;
-      (pdfMake as any).vfs['Crimson-Bold.ttf'] = bold;
-      (pdfMake as any).vfs['Crimson-Italic.ttf'] = italic;
+      pdfMake.vfs['Crimson-Regular.ttf'] = regular;
+      pdfMake.vfs['Crimson-Bold.ttf'] = bold;
+      pdfMake.vfs['Crimson-Italic.ttf'] = italic;
 
-      (pdfMake as any).fonts = {
-        ...(pdfMake as any).fonts,
+      pdfMake.fonts = {
+        ...pdfMake.fonts,
         Crimson: {
           normal: 'Crimson-Regular.ttf',
           bold: 'Crimson-Bold.ttf',
