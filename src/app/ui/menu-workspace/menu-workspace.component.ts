@@ -8,10 +8,6 @@ import { PdfService } from '../../core/services/pdf.service';
 import { MaestroStore } from '../../core/services/maestro-store.service';
 import { RecipeViewComponent } from '../recipe-view/recipe-view.component';
 import { SageCardComponent } from '../sage-card/sage-card.component';
-// @ts-ignore
-import * as pdfMake from 'pdfmake/build/pdfmake';
-// @ts-ignore
-import * as pdfFonts from 'pdfmake/build/vfs_fonts';
 
 @Component({
   selector: 'app-menu-workspace',
@@ -214,8 +210,8 @@ export class MenuWorkspaceComponent implements OnInit {
     this.processingMessage.set("Generating Document Structure...");
 
     try {
-        // Safe access to pdfMake for CDN/ESM build
-        const _pdfMake = (pdfMake as any).default || pdfMake;
+        // Use the service's pdfMake instance instead of importing directly
+        const _pdfMake = this.pdfService.getPdfMake();
         
         // Safety check for library loading
         if (!_pdfMake || !_pdfMake.createPdf) {

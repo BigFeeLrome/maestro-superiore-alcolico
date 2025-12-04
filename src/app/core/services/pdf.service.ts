@@ -9,64 +9,79 @@ import * as pdfFonts from 'pdfmake/build/vfs_fonts';
 })
 export class PdfService {
   private fontsLoaded = false;
+  private pdfMakeInstance: any = null;
 
-  // Unifying on "Crimson Text" for the entire document to ensure stability and quality.
-  // It is a high-quality Old Style Serif (OFL) suitable for fine dining menus.
-  // We use GitHub Raw URLs pointing to specific static files.
   private readonly fonts = {
     CrimsonRegular: 'https://raw.githubusercontent.com/google/fonts/main/ofl/crimsontext/CrimsonText-Regular.ttf',
     CrimsonBold: 'https://raw.githubusercontent.com/google/fonts/main/ofl/crimsontext/CrimsonText-Bold.ttf',
     CrimsonItalic: 'https://raw.githubusercontent.com/google/fonts/main/ofl/crimsontext/CrimsonText-Italic.ttf'
   };
 
-  /**
-   * Fetches fonts, converts to Base64, and configures PDFMake VFS.
-   */
-  async ensureFontsLoaded(): Promise<void> {
-    if (this.fontsLoaded) return;
+  constructor() {
+    this.initializePdfMake();
+  }
 
-    // 1. Get the pdfMake instance
-    const _pdfMake = (pdfMake as any).default || pdfMake;
+  private initializePdfMake(): void {
+    this.pdfMakeInstance = (pdfMake as any).default || pdfMake;
     const _pdfFonts = (pdfFonts as any).default || pdfFonts;
 
-    if (!_pdfMake) {
-      console.error('PdfService: PDFMake not loaded');
-      return;
+    if (_pdfFonts && _pdfFonts.pdfMake && _pdfFonts.pdfMake.vfs) {
+      this.pdfMakeInstance.vfs = { ..._pdfFonts.pdfMake.vfs };
+    } else {
+      this.pdfMakeInstance.vfs = {};
     }
 
-    // 2. Initialize VFS from pdfFonts (standard fonts) - CRITICAL for fallback
-    if (!_pdfMake.vfs) {
-        if (_pdfFonts && _pdfFonts.pdfMake && _pdfFonts.pdfMake.vfs) {
-             _pdfMake.vfs = _pdfFonts.pdfMake.vfs;
-        } else {
-             _pdfMake.vfs = {};
-        }
+    this.pdfMakeInstance.fonts = {
+      Roboto: {
+        normal: 'Roboto-Regular.ttf',
+        bold: 'Roboto-Medium.ttf',
+        italics: 'Roboto-Italic.ttf',
+        bolditalics: 'Roboto-MediumItalic.ttf'
+      }
+    };
+  }
+
+  getPdfMake(): any {
+    return this.pdfMakeInstance;
+  }
+
+  async ensureFontsLoaded(): Promise<void> {
+    if (this.fontsLoaded) {
+      if (this.pdfMakeInstance.vfs['Crimson-Bold.ttf']) {
+        return;
+      }
+      this.fontsLoaded = false;
+    }
+
+    if (!this.pdfMakeInstance) {
+      console.error('PdfService: PDFMake not loaded');
+      this.initializePdfMake();
     }
 
     try {
       console.log('PdfService: Fetching professional fonts from remote...');
-      // 3. Fetch all fonts in parallel
+      
       const [cReg, cBold, cItalic] = await Promise.all([
         this.fetchFont(this.fonts.CrimsonRegular),
         this.fetchFont(this.fonts.CrimsonBold),
         this.fetchFont(this.fonts.CrimsonItalic)
       ]);
 
-      // 4. Register files in Virtual File System
-      _pdfMake.vfs['Crimson-Regular.ttf'] = cReg;
-      _pdfMake.vfs['Crimson-Bold.ttf'] = cBold;
-      _pdfMake.vfs['Crimson-Italic.ttf'] = cItalic;
+      if (!cReg || !cBold || !cItalic) {
+        throw new Error('One or more fonts failed to load');
+      }
 
-      // 5. Configure Font Mapping
-      // We map everything to Crimson Text. Titles will use bold.
-      _pdfMake.fonts = {
+      this.pdfMakeInstance.vfs['Crimson-Regular.ttf'] = cReg;
+      this.pdfMakeInstance.vfs['Crimson-Bold.ttf'] = cBold;
+      this.pdfMakeInstance.vfs['Crimson-Italic.ttf'] = cItalic;
+
+      this.pdfMakeInstance.fonts = {
         Crimson: {
           normal: 'Crimson-Regular.ttf',
           bold: 'Crimson-Bold.ttf',
           italics: 'Crimson-Italic.ttf',
-          bolditalics: 'Crimson-Bold.ttf' // Fallback
+          bolditalics: 'Crimson-Bold.ttf'
         },
-        // Fallback for standard refs
         Roboto: {
           normal: 'Crimson-Regular.ttf',
           bold: 'Crimson-Bold.ttf',
@@ -80,33 +95,23 @@ export class PdfService {
 
     } catch (error) {
       console.error('Failed to load custom fonts. Falling back to default system.', error);
-      
-      // Fallback mapping so the PDF doesn't crash if network fails
-      // We map our custom names back to standard Roboto which is built-in to pdfMake vfs
-      _pdfMake.fonts = {
-        Crimson: {
-          normal: 'Roboto-Regular.ttf',
-          bold: 'Roboto-Medium.ttf',
-          italics: 'Roboto-Italic.ttf',
-          bolditalics: 'Roboto-MediumItalic.ttf'
-        },
-        Roboto: {
-          normal: 'Roboto-Regular.ttf',
-          bold: 'Roboto-Medium.ttf',
-          italics: 'Roboto-Italic.ttf',
-          bolditalics: 'Roboto-MediumItalic.ttf'
-        }
-      };
-      
+      this.initializePdfMake();
       this.fontsLoaded = true;
     }
   }
 
   private async fetchFont(url: string): Promise<string> {
-    const response = await fetch(url);
-    if (!response.ok) throw new Error(`Failed to fetch font: ${url} (Status: ${response.status})`);
-    const buffer = await response.arrayBuffer();
-    return this.arrayBufferToBase64(buffer);
+    try {
+      const response = await fetch(url);
+      if (!response.ok) {
+        throw new Error(`Failed to fetch font: ${url} (Status: ${response.status})`);
+      }
+      const buffer = await response.arrayBuffer();
+      return this.arrayBufferToBase64(buffer);
+    } catch (error) {
+      console.error(`Error fetching font from ${url}:`, error);
+      throw error;
+    }
   }
 
   private arrayBufferToBase64(buffer: ArrayBuffer): string {
@@ -127,12 +132,9 @@ export class PdfService {
     aiAdvice: string;
     isItalian: boolean;
   }): Promise<void> {
-    const _pdfMake = (pdfMake as any).default || pdfMake;
-    const _pdfFonts = (pdfFonts as any).default || pdfFonts;
+    await this.ensureFontsLoaded();
 
-    if (_pdfFonts && _pdfFonts.pdfMake && _pdfFonts.pdfMake.vfs) {
-      _pdfMake.vfs = _pdfFonts.pdfMake.vfs;
-    }
+    const _pdfMake = this.getPdfMake();
 
     const t = data.isItalian
       ? {
@@ -208,6 +210,9 @@ export class PdfService {
           bold: true,
           margin: [0, 10, 0, 5]
         }
+      },
+      defaultStyle: {
+        font: 'Roboto'
       }
     };
 

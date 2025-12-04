@@ -6,10 +6,6 @@ import { LanguageService } from '../../core/services/language.service';
 import { PdfService } from '../../core/services/pdf.service';
 import { MenuAnalysisResponse, AnalyzedDish, MaestroResponse, ExpertiseLevel } from '../../core/models/maestro-schema.models';
 import { RecipeViewComponent } from '../recipe-view/recipe-view.component';
-// @ts-ignore
-import * as pdfMake from 'pdfmake/build/pdfmake';
-// @ts-ignore
-import * as pdfFonts from 'pdfmake/build/vfs_fonts';
 
 @Component({
   selector: 'app-menu-analysis',
@@ -159,7 +155,8 @@ export class MenuAnalysisComponent {
         // Ensure fonts are loaded
         await this.pdfService.ensureFontsLoaded();
         
-        const _pdfMake = (pdfMake as any).default || pdfMake;
+        // Use the service's pdfMake instance
+        const _pdfMake = this.pdfService.getPdfMake();
         const docDefinition = this.buildAnalysisPdfDefinition(data);
         
         const filename = `Maestro_Audit_${data.restaurant_profile.name.replace(/[^a-z0-9]/gi, '_')}.pdf`;
