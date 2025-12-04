@@ -13,6 +13,24 @@ const DICTIONARY = {
     landing_desc_menu: 'Sviluppo di una Drink List Completa',
     landing_mode_analysis: 'Bar Audit',
     landing_desc_analysis: 'Analisi Strategica di Menu Esistenti',
+    landing_mode_calculator: 'Calcolatore Diluizione',
+    landing_desc_calculator: 'Calcolo Precisione Riduzione Gradazione',
+
+    // Calculator
+    calc_title: 'Calcolatore di Diluizione',
+    calc_subtitle: 'Calcola l\'acqua necessaria per ridurre la gradazione',
+    calc_form_title: 'Parametri di Diluizione',
+    calc_initial_volume: 'Volume Iniziale (ml)',
+    calc_initial_abv: 'Gradazione Attuale (%)',
+    calc_target_abv: 'Gradazione Target (%)',
+    calc_calculate: 'Calcola',
+    calc_loading: 'Consultando il Maestro...',
+    calc_results: 'Risultati',
+    calc_water_to_add: 'Acqua da Aggiungere',
+    calc_final_volume: 'Volume Finale',
+    calc_download_pdf: 'Scarica Report PDF',
+    calc_maestro_says: 'Il Maestro Alcolico dice:',
+    calc_consulting: 'Il Maestro sta formulando il suo consiglio...',
 
     // Header & Nav
     back_home: 'HOME',
@@ -215,6 +233,24 @@ const DICTIONARY = {
     landing_desc_menu: 'Development of a Full Beverage Program',
     landing_mode_analysis: 'Bar Audit',
     landing_desc_analysis: 'Strategic Audit of Existing Menus',
+    landing_mode_calculator: 'Dilution Calculator',
+    landing_desc_calculator: 'Precise ABV Reduction Calculation',
+
+    // Calculator
+    calc_title: 'Dilution Calculator',
+    calc_subtitle: 'Calculate water needed to reduce alcohol content',
+    calc_form_title: 'Dilution Parameters',
+    calc_initial_volume: 'Initial Volume (ml)',
+    calc_initial_abv: 'Current ABV (%)',
+    calc_target_abv: 'Target ABV (%)',
+    calc_calculate: 'Calculate',
+    calc_loading: 'Consulting the Maestro...',
+    calc_results: 'Results',
+    calc_water_to_add: 'Water to Add',
+    calc_final_volume: 'Final Volume',
+    calc_download_pdf: 'Download PDF Report',
+    calc_maestro_says: 'The Alcohol Maestro says:',
+    calc_consulting: 'The Maestro is formulating advice...',
 
     // Header & Nav
     back_home: 'HOME',

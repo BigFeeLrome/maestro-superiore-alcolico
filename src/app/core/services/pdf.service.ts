@@ -118,4 +118,98 @@ export class PdfService {
     }
     return window.btoa(binary);
   }
+
+  async generateDilutionReport(data: {
+    initialVol: number;
+    initialAbv: number;
+    targetAbv: number;
+    result: { waterToAdd: number; finalVolume: number };
+    aiAdvice: string;
+    isItalian: boolean;
+  }): Promise<void> {
+    await this.ensureFontsLoaded();
+    
+    const _pdfMake = (pdfMake as any).default || pdfMake;
+    const t = data.isItalian
+      ? {
+          title: 'Maestro Superiore Alcolico',
+          subtitle: 'Report di Diluizione',
+          initialVol: 'Volume Iniziale',
+          initialAbv: 'Gradazione Iniziale',
+          targetAbv: 'Gradazione Target',
+          waterToAdd: 'Acqua da Aggiungere',
+          finalVol: 'Volume Finale',
+          adviceTitle: 'Consiglio del Maestro:',
+          generated: 'Generato il'
+        }
+      : {
+          title: 'Maestro Superiore Alcolico',
+          subtitle: 'Dilution Report',
+          initialVol: 'Initial Volume',
+          initialAbv: 'Initial ABV',
+          targetAbv: 'Target ABV',
+          waterToAdd: 'Water to Add',
+          finalVol: 'Final Volume',
+          adviceTitle: 'Maestro\'s Advice:',
+          generated: 'Generated on'
+        };
+
+    const docDefinition = {
+      content: [
+        { text: t.title, style: 'header' },
+        { text: t.subtitle, style: 'subheader' },
+        { text: ' ', margin: [0, 10] },
+        {
+          table: {
+            widths: ['*', '*'],
+            body: [
+              [t.initialVol, `${data.initialVol} ml`],
+              [t.initialAbv, `${data.initialAbv}%`],
+              [t.targetAbv, `${data.targetAbv}%`],
+              [{ text: t.waterToAdd, bold: true }, { text: `${data.result.waterToAdd} ml`, bold: true }],
+              [t.finalVol, `${data.result.finalVolume} ml`]
+            ]
+          },
+          layout: {
+            hLineWidth: () => 0.5,
+            vLineWidth: () => 0.5,
+            hLineColor: () => '#cccccc',
+            vLineColor: () => '#cccccc',
+            paddingLeft: () => 8,
+            paddingRight: () => 8,
+            paddingTop: () => 6,
+            paddingBottom: () => 6
+          }
+        },
+        { text: t.adviceTitle, style: 'subheader', margin: [0, 15, 0, 5] },
+        { text: data.aiAdvice, italics: true, color: '#555555' },
+        {
+          text: `${t.generated} ${new Date().toLocaleDateString()}`,
+          alignment: 'right',
+          margin: [0, 20],
+          fontSize: 10,
+          color: '#888888'
+        }
+      ],
+      styles: {
+        header: {
+          fontSize: 22,
+          bold: true,
+          alignment: 'center',
+          margin: [0, 0, 0, 10],
+          color: '#4F46E5'
+        },
+        subheader: {
+          fontSize: 16,
+          bold: true,
+          margin: [0, 10, 0, 5]
+        }
+      },
+      defaultStyle: {
+        font: 'Crimson'
+      }
+    };
+
+    _pdfMake.createPdf(docDefinition).open();
+  }
 }

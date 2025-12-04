@@ -2,6 +2,7 @@ import { ChangeDetectionStrategy, Component, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { DashboardComponent } from './app/pages/dashboard/dashboard.component';
 import { LandingComponent } from './app/pages/landing/landing.component';
+import { CalculatorComponent } from './app/ui/calculator/calculator.component';
 import { LanguageService, Language } from './app/core/services/language.service';
 import { MaestroStore, CreationMode } from './app/core/services/maestro-store.service';
 
@@ -10,7 +11,7 @@ import { MaestroStore, CreationMode } from './app/core/services/maestro-store.se
   standalone: true,
   templateUrl: './app.component.html',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [CommonModule, DashboardComponent, LandingComponent]
+  imports: [CommonModule, DashboardComponent, LandingComponent, CalculatorComponent]
 })
 export class AppComponent {
   private readonly store = inject(MaestroStore);

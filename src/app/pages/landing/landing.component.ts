@@ -26,4 +26,8 @@ export class LandingComponent {
   enterAnalysisMode(): void {
     this.modeSelected.emit('ANALYSIS');
   }
+
+  enterCalculatorMode(): void {
+    this.modeSelected.emit('CALCULATOR');
+  }
 }

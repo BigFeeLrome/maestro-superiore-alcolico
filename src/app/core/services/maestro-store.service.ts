@@ -3,7 +3,7 @@ import { Injectable, signal } from '@angular/core';
 import { MaestroResponse, MenuProjectResponse } from '../models/maestro-schema.models';
 
 export type AppState = 'LANDING' | 'CREATION';
-export type CreationMode = 'SINGLE' | 'MENU' | 'ANALYSIS';
+export type CreationMode = 'SINGLE' | 'MENU' | 'ANALYSIS' | 'CALCULATOR';
 
 @Injectable({
   providedIn: 'root'
