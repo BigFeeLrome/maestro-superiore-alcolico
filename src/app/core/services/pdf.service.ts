@@ -1,38 +1,40 @@
 import { Injectable } from '@angular/core';
+
+// @ts-ignore - Import pdfMake SOLO qui, una volta sola
+import pdfMake from 'pdfmake/build/pdfmake';
 // @ts-ignore
-import * as pdfMake from 'pdfmake/build/pdfmake';
-// @ts-ignore
-import * as pdfFonts from 'pdfmake/build/vfs_fonts';
+import pdfFonts from 'pdfmake/build/vfs_fonts';
+
+export type TDocumentDefinitions = Parameters<typeof pdfMake.createPdf>[0];
 
 @Injectable({
   providedIn: 'root'
 })
 export class PdfService {
   private fontsLoaded = false;
-  private pdfMakeInstance: any = null;
+  private fontsLoading: Promise<void> | null = null;
 
-  private readonly fonts = {
-    CrimsonRegular: 'https://raw.githubusercontent.com/google/fonts/main/ofl/crimsontext/CrimsonText-Regular.ttf',
-    CrimsonBold: 'https://raw.githubusercontent.com/google/fonts/main/ofl/crimsontext/CrimsonText-Bold.ttf',
-    CrimsonItalic: 'https://raw.githubusercontent.com/google/fonts/main/ofl/crimsontext/CrimsonText-Italic.ttf'
+  private readonly FONT_URLS = {
+    regular: 'https://raw.githubusercontent.com/google/fonts/main/ofl/crimsontext/CrimsonText-Regular.ttf',
+    bold: 'https://raw.githubusercontent.com/google/fonts/main/ofl/crimsontext/CrimsonText-Bold.ttf',
+    italic: 'https://raw.githubusercontent.com/google/fonts/main/ofl/crimsontext/CrimsonText-Italic.ttf'
   };
 
   constructor() {
-    this.initializePdfMake();
+    this.initializeDefaultFonts();
   }
 
-  private initializePdfMake(): void {
-    this.pdfMakeInstance = (pdfMake as any).default || pdfMake;
-    const _pdfFonts = (pdfFonts as any).default || pdfFonts;
-
-    if (_pdfFonts && _pdfFonts.pdfMake && _pdfFonts.pdfMake.vfs) {
-      this.pdfMakeInstance.vfs = { ..._pdfFonts.pdfMake.vfs };
-    } else {
-      this.pdfMakeInstance.vfs = {};
-    }
-
-    this.pdfMakeInstance.fonts = {
+  private initializeDefaultFonts(): void {
+    (pdfMake as any).vfs = pdfFonts.pdfMake.vfs;
+    
+    (pdfMake as any).fonts = {
       Roboto: {
+        normal: 'Roboto-Regular.ttf',
+        bold: 'Roboto-Medium.ttf',
+        italics: 'Roboto-Italic.ttf',
+        bolditalics: 'Roboto-MediumItalic.ttf'
+      },
+      Crimson: {
         normal: 'Roboto-Regular.ttf',
         bold: 'Roboto-Medium.ttf',
         italics: 'Roboto-Italic.ttf',
@@ -41,41 +43,34 @@ export class PdfService {
     };
   }
 
-  getPdfMake(): any {
-    return this.pdfMakeInstance;
+  async ensureFontsLoaded(): Promise<void> {
+    if (this.fontsLoaded) return;
+    
+    if (this.fontsLoading) {
+      await this.fontsLoading;
+      return;
+    }
+
+    this.fontsLoading = this.loadFonts();
+    await this.fontsLoading;
   }
 
-  async ensureFontsLoaded(): Promise<void> {
-    if (this.fontsLoaded) {
-      if (this.pdfMakeInstance.vfs['Crimson-Bold.ttf']) {
-        return;
-      }
-      this.fontsLoaded = false;
-    }
-
-    if (!this.pdfMakeInstance) {
-      console.error('PdfService: PDFMake not loaded');
-      this.initializePdfMake();
-    }
-
+  private async loadFonts(): Promise<void> {
     try {
-      console.log('PdfService: Fetching professional fonts from remote...');
-      
-      const [cReg, cBold, cItalic] = await Promise.all([
-        this.fetchFont(this.fonts.CrimsonRegular),
-        this.fetchFont(this.fonts.CrimsonBold),
-        this.fetchFont(this.fonts.CrimsonItalic)
+      console.log('PdfService: Fetching professional fonts...');
+
+      const [regular, bold, italic] = await Promise.all([
+        this.fetchFontAsBase64(this.FONT_URLS.regular),
+        this.fetchFontAsBase64(this.FONT_URLS.bold),
+        this.fetchFontAsBase64(this.FONT_URLS.italic)
       ]);
 
-      if (!cReg || !cBold || !cItalic) {
-        throw new Error('One or more fonts failed to load');
-      }
+      (pdfMake as any).vfs['Crimson-Regular.ttf'] = regular;
+      (pdfMake as any).vfs['Crimson-Bold.ttf'] = bold;
+      (pdfMake as any).vfs['Crimson-Italic.ttf'] = italic;
 
-      this.pdfMakeInstance.vfs['Crimson-Regular.ttf'] = cReg;
-      this.pdfMakeInstance.vfs['Crimson-Bold.ttf'] = cBold;
-      this.pdfMakeInstance.vfs['Crimson-Italic.ttf'] = cItalic;
-
-      this.pdfMakeInstance.fonts = {
+      (pdfMake as any).fonts = {
+        ...(pdfMake as any).fonts,
         Crimson: {
           normal: 'Crimson-Regular.ttf',
           bold: 'Crimson-Bold.ttf',
@@ -91,37 +86,66 @@ export class PdfService {
       };
 
       this.fontsLoaded = true;
-      console.log('Maestro Professional Fonts Loaded');
+      console.log('PdfService: Professional fonts loaded successfully');
 
     } catch (error) {
-      console.error('Failed to load custom fonts. Falling back to default system.', error);
-      this.initializePdfMake();
+      console.warn('PdfService: Failed to load custom fonts, using defaults', error);
       this.fontsLoaded = true;
+    } finally {
+      this.fontsLoading = null;
     }
   }
 
-  private async fetchFont(url: string): Promise<string> {
-    try {
-      const response = await fetch(url);
-      if (!response.ok) {
-        throw new Error(`Failed to fetch font: ${url} (Status: ${response.status})`);
-      }
-      const buffer = await response.arrayBuffer();
-      return this.arrayBufferToBase64(buffer);
-    } catch (error) {
-      console.error(`Error fetching font from ${url}:`, error);
-      throw error;
+  private async fetchFontAsBase64(url: string): Promise<string> {
+    const response = await fetch(url);
+    if (!response.ok) {
+      throw new Error(`Font fetch failed: ${response.status}`);
     }
-  }
-
-  private arrayBufferToBase64(buffer: ArrayBuffer): string {
-    let binary = '';
+    const buffer = await response.arrayBuffer();
+    
     const bytes = new Uint8Array(buffer);
-    const len = bytes.byteLength;
-    for (let i = 0; i < len; i++) {
+    let binary = '';
+    for (let i = 0; i < bytes.length; i++) {
       binary += String.fromCharCode(bytes[i]);
     }
-    return window.btoa(binary);
+    return btoa(binary);
+  }
+
+  async createPdf(docDefinition: TDocumentDefinitions, filename: string): Promise<void> {
+    await this.ensureFontsLoaded();
+    
+    return new Promise((resolve, reject) => {
+      try {
+        pdfMake.createPdf(docDefinition).download(filename, () => {
+          resolve();
+        });
+      } catch (error) {
+        reject(error);
+      }
+    });
+  }
+
+  async openPdf(docDefinition: TDocumentDefinitions): Promise<void> {
+    await this.ensureFontsLoaded();
+    
+    return new Promise((resolve, reject) => {
+      try {
+        pdfMake.createPdf(docDefinition).open({}, window);
+        resolve();
+      } catch (error) {
+        reject(error);
+      }
+    });
+  }
+
+  async getPdfBlob(docDefinition: TDocumentDefinitions): Promise<Blob> {
+    await this.ensureFontsLoaded();
+    
+    return new Promise((resolve) => {
+      pdfMake.createPdf(docDefinition).getBlob((blob: Blob) => {
+        resolve(blob);
+      });
+    });
   }
 
   async generateDilutionReport(data: {
@@ -132,10 +156,6 @@ export class PdfService {
     aiAdvice: string;
     isItalian: boolean;
   }): Promise<void> {
-    await this.ensureFontsLoaded();
-
-    const _pdfMake = this.getPdfMake();
-
     const t = data.isItalian
       ? {
           title: 'Maestro Superiore Alcolico',
@@ -216,6 +236,6 @@ export class PdfService {
       }
     };
 
-    _pdfMake.createPdf(docDefinition).download('dilution-report.pdf');
+    await this.createPdf(docDefinition, 'dilution-report.pdf');
   }
 }

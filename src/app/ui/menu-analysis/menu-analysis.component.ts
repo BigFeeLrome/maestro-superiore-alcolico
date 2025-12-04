@@ -152,15 +152,10 @@ export class MenuAnalysisComponent {
     this.isExporting.set(true);
 
     try {
-        // Ensure fonts are loaded
-        await this.pdfService.ensureFontsLoaded();
-        
-        // Use the service's pdfMake instance
-        const _pdfMake = this.pdfService.getPdfMake();
         const docDefinition = this.buildAnalysisPdfDefinition(data);
-        
         const filename = `Maestro_Audit_${data.restaurant_profile.name.replace(/[^a-z0-9]/gi, '_')}.pdf`;
-        _pdfMake.createPdf(docDefinition).download(filename);
+        
+        await this.pdfService.createPdf(docDefinition, filename);
 
     } catch (error) {
         console.error("PDF Export Failed", error);

@@ -6,10 +6,6 @@ import { LanguageService } from '../../core/services/language.service';
 import { PdfService } from '../../core/services/pdf.service';
 import { MarketAnalysisComponent } from '../market-analysis/market-analysis.component';
 import { PhotoPromptComponent } from '../photo-prompt/photo-prompt.component';
-// @ts-ignore
-import * as pdfMake from 'pdfmake/build/pdfmake';
-// @ts-ignore
-import * as pdfFonts from 'pdfmake/build/vfs_fonts';
 
 @Component({
   selector: 'app-recipe-view',
@@ -81,21 +77,12 @@ export class RecipeViewComponent implements OnInit {
     this.processingMessage.set(this.lang.t().ma_single_calculating);
 
     try {
-        // A. Run Granular Market Analysis (Google Search)
-        // This now includes ABV and Calorie searches
+        // A. Run Granular Market Analysis
         const marketReport = await this.geminiService.analyzeSingleDishMarket(this.data);
 
-        // B. Load Fonts
-        this.processingMessage.set("Loading Typography...");
-        try {
-          await this.pdfService.ensureFontsLoaded();
-        } catch(e) {
-          console.warn("Font loading error handled, proceeding with fallback", e);
-        }
-
-        // C. Generate PDF
+        // B. Generate PDF
         this.processingMessage.set("Generating Document...");
-        this.generatePdf(marketReport);
+        await this.generatePdf(marketReport);
 
     } catch (e) {
         console.error('Export failed', e);
@@ -105,10 +92,7 @@ export class RecipeViewComponent implements OnInit {
     }
   }
 
-  private generatePdf(report: MarketReport) {
-      // Safe access to pdfMake for CDN/ESM build
-      const _pdfMake = (pdfMake as any).default || pdfMake;
-      
+  private async generatePdf(report: MarketReport) {
       const ingredientsTable = this.data!.ingredients.map(ing => [
         { text: ing.name, style: 'ingName' }, 
         { text: ing.quantity, style: 'ingQty', alignment: 'right' }
@@ -352,7 +336,7 @@ export class RecipeViewComponent implements OnInit {
       };
 
       const safeFilename = this.meta.dish_name.replace(/[^a-z0-9]/gi, '_').toLowerCase();
-      _pdfMake.createPdf(docDefinition).download(`maestro_chef_copy_${safeFilename}.pdf`);
+      await this.pdfService.createPdf(docDefinition, `maestro_chef_copy_${safeFilename}.pdf`);
   }
 
   // --- 3. EXPORT RECIPE CODE (MARKDOWN) ---

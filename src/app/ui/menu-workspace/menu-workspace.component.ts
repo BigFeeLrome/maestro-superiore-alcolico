@@ -191,40 +191,23 @@ export class MenuWorkspaceComponent implements OnInit {
         } catch (e: any) {
              console.error('Auto-analysis failed', e);
              this.isProcessing.set(false);
-             // Specific alert
              alert(`Could not complete financial analysis: ${e.message}. PDF Export aborted.`);
              return;
         }
     }
 
-    // STEP 2: Load Fonts
+    // STEP 2: Generate PDF
     this.isProcessing.set(true);
-    this.processingMessage.set("Loading Typography...");
-    try {
-        await this.pdfService.ensureFontsLoaded();
-    } catch(e) {
-        console.warn('Font loading failed, falling back', e);
-    }
-
-    // STEP 3: Generate PDF using PDFMake
-    this.processingMessage.set("Generating Document Structure...");
+    this.processingMessage.set("Generating Document...");
 
     try {
-        // Use the service's pdfMake instance instead of importing directly
-        const _pdfMake = this.pdfService.getPdfMake();
-        
-        // Safety check for library loading
-        if (!_pdfMake || !_pdfMake.createPdf) {
-            throw new Error("PDFMake library not loaded correctly");
-        }
-
         const docDefinition = this.buildPdfDefinition();
         const safeFilename = this.project.concept.title.replace(/[^a-z0-9]/gi, '_').toLowerCase();
         
-        _pdfMake.createPdf(docDefinition).download(`maestro_concept_${safeFilename}.pdf`);
+        await this.pdfService.createPdf(docDefinition, `maestro_concept_${safeFilename}.pdf`);
 
     } catch (error) {
-        console.error('PDF Make Failed', error);
+        console.error('PDF Generation Failed', error);
         alert('Failed to generate PDF. Please try again.');
     } finally {
         this.isProcessing.set(false);
